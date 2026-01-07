@@ -1,0 +1,133 @@
+---
+- name: Setup Debian Server
+  hosts: debian_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # ============================================
+    # Fix locale issues (macOS SSH connection)
+    # ============================================
+    - name: Install locales package
+      apt:
+        name: locales
+        state: present
+        update_cache: yes
+
+    - name: Generate en_US.UTF-8 locale
+      locale_gen:
+        name: en_US.UTF-8
+        state: present
+
+    - name: Set en_US.UTF-8 as default locale
+      copy:
+        content: |
+          LANG=en_US.UTF-8
+          LC_ALL=en_US.UTF-8
+        dest: /etc/default/locale
+        mode: '0644'
+
+    - name: Update locale environment
+      command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+      changed_when: false
+
+    - name: Disable AcceptEnv in SSH to prevent locale issues
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^AcceptEnv'
+        line: '# AcceptEnv disabled to prevent invalid locale from clients'
+        state: present
+      notify: Restart SSH
+
+    - name: Create locale fix script in profile.d
+      copy:
+        content: |
+          # Fix invalid locale from SSH clients (e.g., macOS)
+          unset LC_CTYPE
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+        dest: /etc/profile.d/fix-locale.sh
+        mode: '0644'
+
+    # ============================================
+    # Create debian user
+    # ============================================
+    - name: Create debian user with home directory
+      user:
+        name: debian
+        state: present
+        create_home: yes
+        home: /home/debian
+        shell: /bin/bash
+        groups: []
+
+    - name: Fix locale settings in debian user bashrc
+      lineinfile:
+        path: /home/debian/.bashrc
+        line: "{{ item }}"
+        create: yes
+        owner: debian
+        group: debian
+        mode: '0644'
+      loop:
+        - "export LANG=en_US.UTF-8"
+        - "export LC_ALL=en_US.UTF-8"
+
+    - name: Create bash_profile with locale fix for debian user
+      copy:
+        content: |
+          # Unset invalid locale from SSH
+          unset LC_CTYPE
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+          # Source bashrc
+          if [ -f ~/.bashrc ]; then
+              . ~/.bashrc
+          fi
+        dest: /home/debian/.bash_profile
+        owner: debian
+        group: debian
+        mode: '0644'
+
+    # ============================================
+    # Configure sudo access
+    # ============================================
+    - name: Configure passwordless sudo for debian user
+      copy:
+        content: "debian ALL=(ALL) NOPASSWD:ALL\n"
+        dest: /etc/sudoers.d/debian
+        mode: '0440'
+        validate: 'visudo -cf %s'
+
+    # ============================================
+    # Deploy SSH public keys
+    # ============================================
+    - name: Ensure .ssh directory exists for debian user
+      file:
+        path: /home/debian/.ssh
+        state: directory
+        owner: debian
+        group: debian
+        mode: '0700'
+
+    - name: Find all public keys in keys/ directory
+      local_action:
+        module: find
+        paths: "{{ playbook_dir }}/keys"
+        patterns: "*.pub"
+      register: public_keys
+      become: no
+
+    - name: Deploy public keys to authorized_keys
+      authorized_key:
+        user: debian
+        state: present
+        key: "{{ lookup('file', item.path) }}"
+      loop: "{{ public_keys.files }}"
+      when: public_keys.files | length > 0
+
+  handlers:
+    - name: Restart SSH
+      systemd:
+        name: sshd
+        state: restarted
