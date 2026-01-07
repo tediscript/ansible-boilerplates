@@ -1,6 +1,19 @@
 [debian_servers]
 # Add your Debian server hosts below
 # Examples:
+
+# Standard SSH key authentication (uses default ~/.ssh/id_rsa or ssh-agent)
 # debian-server-01 ansible_host=192.168.1.100 ansible_user=root ansible_port=22
-# my-vps ansible_host=203.0.113.10 ansible_user=root ansible_port=22
-# droplet ansible_host=example.com ansible_user=root ansible_port=22
+
+# Custom SSH private key path (absolute path)
+# my-vps ansible_host=203.0.113.10 ansible_user=root ansible_port=22 ansible_ssh_private_key_file=/home/admin/.ssh/id_rsa_vps
+
+# Password authentication (not recommended for production - use SSH keys instead)
+# droplet ansible_host=example.com ansible_user=root ansible_port=22 ansible_password=YourPasswordHere
+
+# Password authentication with sudo password (when server doesn't have NOPASSWD configured)
+# web-server ansible_host=192.168.1.50 ansible_user=admin ansible_password=SshPassword123 ansible_become_password=SudoPassword456
+
+# Multiple servers with different authentication methods
+# prod-server-01 ansible_host=10.0.1.10 ansible_user=root ansible_ssh_private_key_file=/root/.ssh/id_rsa_production
+# dev-server-01 ansible_host=10.0.2.10 ansible_user=developer ansible_password=DevPass123 ansible_become_password=DevSudo456
