@@ -1,0 +1,28 @@
+---
+- name: Setup Ubuntu Server
+  hosts: ubuntu_servers
+  become: yes
+  gather_facts: yes
+
+  tasks:
+    # ============================================
+    # Create ubuntu user
+    # ============================================
+    - name: Create ubuntu user with home directory
+      user:
+        name: ubuntu
+        state: present
+        create_home: yes
+        home: /home/ubuntu
+        shell: /bin/bash
+        groups: []
+
+    # ============================================
+    # Configure sudo access
+    # ============================================
+    - name: Configure passwordless sudo for ubuntu user
+      copy:
+        content: "ubuntu ALL=(ALL) NOPASSWD:ALL\n"
+        dest: /etc/sudoers.d/ubuntu
+        mode: '0440'
+        validate: 'visudo -cf %s'
