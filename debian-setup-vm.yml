@@ -14,10 +14,18 @@
         state: present
         update_cache: yes
 
-    - name: Generate en_US.UTF-8 locale
-      locale_gen:
-        name: en_US.UTF-8
+    - name: Ensure en_US.UTF-8 locale is enabled in /etc/locale.gen
+      lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*en_US\.UTF-8\s+UTF-8'
+        line: 'en_US.UTF-8 UTF-8'
         state: present
+        backup: yes
+
+    - name: Generate locales
+      command: locale-gen
+      register: locale_gen_result
+      changed_when: "'Generating locales' in locale_gen_result.stdout"
 
     - name: Set en_US.UTF-8 as default locale
       copy:
@@ -48,6 +56,69 @@
           export LC_ALL=en_US.UTF-8
         dest: /etc/profile.d/fix-locale.sh
         mode: '0644'
+
+    # ============================================
+    # Configure swap space (2GB)
+    # ============================================
+    - name: Check if swap file exists
+      stat:
+        path: /swapfile
+      register: swap_file_check
+
+    - name: Check if swap is already active
+      command: swapon --show
+      register: swap_active
+      changed_when: false
+      failed_when: false
+
+    - name: Create 2GB swap file using fallocate
+      command: fallocate -l 2G /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Set swap file permissions to 600
+      file:
+        path: /swapfile
+        owner: root
+        group: root
+        mode: '0600'
+      when: not swap_file_check.stat.exists
+
+    - name: Format swap file
+      command: mkswap /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Enable swap file
+      command: swapon /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Add swap entry to /etc/fstab for persistence
+      lineinfile:
+        path: /etc/fstab
+        line: '/swapfile none swap sw 0 0'
+        state: present
+        backup: yes
+
+    - name: Configure swap-related sysctl parameters
+      copy:
+        content: |
+          # Swap configuration for server optimization
+          vm.swappiness=10
+          vm.vfs_cache_pressure=50
+        dest: /etc/sysctl.d/99-swap.conf
+        mode: '0644'
+
+    - name: Apply sysctl settings
+      command: sysctl --system
+      changed_when: false
+
+    - name: Verify swap is active
+      command: swapon --show
+      register: swap_verification
+      changed_when: false
+
+    - name: Display swap status
+      debug:
+        var: swap_verification.stdout_lines
 
     # ============================================
     # Create debian user
@@ -111,11 +182,11 @@
         mode: '0700'
 
     - name: Find all public keys in keys/ directory
-      local_action:
-        module: find
+      find:
         paths: "{{ playbook_dir }}/keys"
         patterns: "*.pub"
       register: public_keys
+      delegate_to: localhost
       become: no
 
     - name: Deploy public keys to authorized_keys
