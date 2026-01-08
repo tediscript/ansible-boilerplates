@@ -25,6 +25,29 @@
         mode: '0700'
 
     # ============================================
+    # Generate SSH key pair
+    # ============================================
+    - name: Generate RSA SSH key pair for debian user
+      openssh_keypair:
+        path: /home/debian/.ssh/id_rsa
+        type: rsa
+        size: 4096
+        owner: debian
+        group: debian
+        comment: "debian@{{ ansible_hostname }}"
+      register: ssh_keypair
+
+    - name: Read generated public key
+      slurp:
+        src: /home/debian/.ssh/id_rsa.pub
+      register: public_key_content
+
+    - name: Display generated public key
+      debug:
+        msg: "{{ public_key_content.content | b64decode }}"
+      when: ssh_keypair.changed
+
+    # ============================================
     # Deploy SSH public keys
     # ============================================
     - name: Find all public keys in keys/ directory
