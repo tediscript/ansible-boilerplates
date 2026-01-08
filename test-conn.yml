@@ -1,6 +1,6 @@
 ---
-- name: Test Connection to Debian Servers
-  hosts: debian_servers
+- name: Test Connection Servers
+  hosts: all
   gather_facts: no
 
   tasks:
