@@ -13,7 +13,7 @@ cp .inventory.ini.example .inventory.ini
 nano .inventory.ini
 ```
 
-Add your Debian server(s):
+Add your server(s):
 
 ```ini
 [debian_servers]
