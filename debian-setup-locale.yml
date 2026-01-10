@@ -1,0 +1,95 @@
+---
+- name: Setup Debian Locale (macOS SSH compatibility)
+  hosts: debian_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ============================================
+    # Fix locale issues (macOS SSH connection)
+    # ============================================
+    - name: Install locales package
+      apt:
+        name: locales
+        state: present
+        update_cache: true
+
+    - name: Ensure en_US.UTF-8 locale is enabled in /etc/locale.gen
+      lineinfile:
+        path: /etc/locale.gen
+        regexp: '^#?\s*en_US\.UTF-8\s+UTF-8'
+        line: 'en_US.UTF-8 UTF-8'
+        state: present
+        backup: true
+
+    - name: Generate locales
+      command: locale-gen
+      register: locale_gen_result
+      changed_when: "'Generating locales' in locale_gen_result.stdout"
+
+    - name: Set en_US.UTF-8 as default locale
+      copy:
+        content: |
+          LANG=en_US.UTF-8
+          LC_ALL=en_US.UTF-8
+        dest: /etc/default/locale
+        mode: '0644'
+
+    - name: Update locale environment
+      command: update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+      changed_when: false
+
+    - name: Disable AcceptEnv in SSH to prevent locale issues
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^AcceptEnv'
+        line: '# AcceptEnv disabled to prevent invalid locale from clients'
+        state: present
+      notify: Restart SSH
+
+    - name: Create locale fix script in profile.d
+      copy:
+        content: |
+          # Fix invalid locale from SSH clients (e.g., macOS)
+          unset LC_CTYPE
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+        dest: /etc/profile.d/fix-locale.sh
+        mode: '0644'
+
+    # ============================================
+    # Fix locale settings for debian user
+    # ============================================
+    - name: Fix locale settings in debian user bashrc
+      lineinfile:
+        path: /home/debian/.bashrc
+        line: "{{ item }}"
+        create: true
+        owner: debian
+        group: debian
+        mode: '0644'
+      loop:
+        - "export LANG=en_US.UTF-8"
+        - "export LC_ALL=en_US.UTF-8"
+
+    - name: Create bash_profile with locale fix for debian user
+      copy:
+        content: |
+          # Unset invalid locale from SSH
+          unset LC_CTYPE
+          export LANG=en_US.UTF-8
+          export LC_ALL=en_US.UTF-8
+          # Source bashrc
+          if [ -f ~/.bashrc ]; then
+              . ~/.bashrc
+          fi
+        dest: /home/debian/.bash_profile
+        owner: debian
+        group: debian
+        mode: '0644'
+
+  handlers:
+    - name: Restart SSH
+      systemd:
+        name: sshd
+        state: restarted
