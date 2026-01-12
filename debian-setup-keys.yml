@@ -1,45 +1,45 @@
 ---
 - name: Deploy SSH Keys to Debian Server
   hosts: debian_servers
-  become: yes
-  gather_facts: yes
+  become: true
+  gather_facts: true
 
   tasks:
     # ============================================
-    # Ensure debian user exists
+    # Ensure admin user exists
     # ============================================
-    - name: Ensure debian user exists
+    - name: Ensure admin user exists
       user:
-        name: debian
+        name: admin
         state: present
 
     # ============================================
     # Configure SSH directory
     # ============================================
-    - name: Ensure .ssh directory exists for debian user
+    - name: Ensure .ssh directory exists for admin user
       file:
-        path: /home/debian/.ssh
+        path: /home/admin/.ssh
         state: directory
-        owner: debian
-        group: debian
+        owner: admin
+        group: admin
         mode: '0700'
 
     # ============================================
     # Generate SSH key pair
     # ============================================
-    - name: Generate RSA SSH key pair for debian user
+    - name: Generate RSA SSH key pair for admin user
       openssh_keypair:
-        path: /home/debian/.ssh/id_rsa
+        path: /home/admin/.ssh/id_rsa
         type: rsa
         size: 4096
-        owner: debian
-        group: debian
-        comment: "debian@{{ ansible_hostname }}"
+        owner: admin
+        group: admin
+        comment: "admin@{{ ansible_hostname }}"
       register: ssh_keypair
 
     - name: Read generated public key
       slurp:
-        src: /home/debian/.ssh/id_rsa.pub
+        src: /home/admin/.ssh/id_rsa.pub
       register: public_key_content
 
     - name: Display generated public key
@@ -56,11 +56,11 @@
         patterns: "*.pub"
       register: public_keys
       delegate_to: localhost
-      become: no
+      become: false
 
     - name: Deploy public keys to authorized_keys
       authorized_key:
-        user: debian
+        user: admin
         state: present
         key: "{{ lookup('file', item.path) }}"
       loop: "{{ public_keys.files }}"
