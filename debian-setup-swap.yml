@@ -1,0 +1,69 @@
+---
+- name: Setup Debian Swap
+  hosts: debian_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ============================================
+    # Configure swap space (2GB)
+    # ============================================
+    - name: Check if swap file exists
+      stat:
+        path: /swapfile
+      register: swap_file_check
+
+    - name: Check if swap is already active
+      command: swapon --show
+      register: swap_active
+      changed_when: false
+      failed_when: false
+
+    - name: Create 2GB swap file using fallocate
+      command: fallocate -l 2G /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Set swap file permissions to 600
+      file:
+        path: /swapfile
+        owner: root
+        group: root
+        mode: '0600'
+      when: not swap_file_check.stat.exists
+
+    - name: Format swap file
+      command: mkswap /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Enable swap file
+      command: swapon /swapfile
+      when: not swap_file_check.stat.exists
+
+    - name: Add swap entry to /etc/fstab for persistence
+      lineinfile:
+        path: /etc/fstab
+        line: '/swapfile none swap sw 0 0'
+        state: present
+        backup: true
+
+    - name: Configure swap-related sysctl parameters
+      copy:
+        content: |
+          # Swap configuration for server optimization
+          vm.swappiness=10
+          vm.vfs_cache_pressure=50
+        dest: /etc/sysctl.d/99-swap.conf
+        mode: '0644'
+
+    - name: Apply sysctl settings
+      command: sysctl --system
+      changed_when: false
+
+    - name: Verify swap is active
+      command: swapon --show
+      register: swap_verification
+      changed_when: false
+
+    - name: Display swap status
+      debug:
+        var: swap_verification.stdout_lines
