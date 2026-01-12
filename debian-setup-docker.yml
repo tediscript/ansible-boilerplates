@@ -98,29 +98,29 @@
         state: started
 
     # ============================================
-    # Add debian user to docker group
+    # Add admin user to docker group
     # ============================================
-    - name: Add debian user to docker group
+    - name: Add admin user to docker group
       user:
-        name: debian
+        name: admin
         groups: docker
         append: yes
 
-    - name: Create docker directory in debian user home
+    - name: Create docker directory in admin user home
       file:
-        path: /home/debian/docker
+        path: /home/admin/docker
         state: directory
-        owner: debian
-        group: debian
+        owner: admin
+        group: admin
         mode: '0755'
 
     - name: Add docker-compose alias for backward compatibility
       lineinfile:
-        path: /home/debian/.bash_aliases
+        path: /home/admin/.bash_aliases
         line: 'alias docker-compose="docker compose"'
         create: yes
-        owner: debian
-        group: debian
+        owner: admin
+        group: admin
         mode: '0644'
 
     - name: Reset SSH connection to apply group changes
@@ -129,8 +129,8 @@
     # ============================================
     # Verify Docker installation
     # ============================================
-    - name: Run Docker hello-world as debian user
-      become_user: debian
+    - name: Run Docker hello-world as admin user
+      become_user: admin
       command: docker run hello-world
       register: docker_hello
       changed_when: false
