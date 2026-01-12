@@ -2,4 +2,4 @@ keys/*
 !keys/.gitkeep
 .inventory.ini
 .vscode/
-custom-playbook.yml
+custom*
