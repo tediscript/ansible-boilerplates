@@ -1,0 +1,30 @@
+---
+- name: Setup Debian User
+  hosts: debian_servers
+  become: true
+  gather_facts: true
+
+  tasks:
+    # ============================================
+    # Create admin user
+    # ============================================
+    - name: Create admin user with home directory
+      user:
+        name: admin
+        state: present
+        create_home: true
+        home: /home/admin
+        shell: /bin/bash
+        groups: []
+
+    # ============================================
+    # Configure sudo access
+    # ============================================
+    - name: Configure passwordless sudo for admin user
+      copy:
+        content: "admin ALL=(ALL) NOPASSWD:ALL\n"
+        dest: /etc/sudoers.d/admin
+        mode: '0440'
+        validate: 'visudo -cf %s'
+
+    
