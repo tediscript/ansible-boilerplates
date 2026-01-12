@@ -58,21 +58,21 @@
         mode: '0644'
 
     # ============================================
-    # Fix locale settings for debian user
+    # Fix locale settings for admin user
     # ============================================
-    - name: Fix locale settings in debian user bashrc
+    - name: Fix locale settings in admin user bashrc
       lineinfile:
-        path: /home/debian/.bashrc
+        path: /home/admin/.bashrc
         line: "{{ item }}"
         create: true
-        owner: debian
-        group: debian
+        owner: admin
+        group: admin
         mode: '0644'
       loop:
         - "export LANG=en_US.UTF-8"
         - "export LC_ALL=en_US.UTF-8"
 
-    - name: Create bash_profile with locale fix for debian user
+    - name: Create bash_profile with locale fix for admin user
       copy:
         content: |
           # Unset invalid locale from SSH
@@ -83,9 +83,9 @@
           if [ -f ~/.bashrc ]; then
               . ~/.bashrc
           fi
-        dest: /home/debian/.bash_profile
-        owner: debian
-        group: debian
+        dest: /home/admin/.bash_profile
+        owner: admin
+        group: admin
         mode: '0644'
 
   handlers:
